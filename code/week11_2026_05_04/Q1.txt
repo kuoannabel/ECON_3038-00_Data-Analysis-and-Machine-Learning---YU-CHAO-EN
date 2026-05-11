@@ -1,4 +1,5 @@
-要在 Google Colab 上完成這題，最簡單且精確的方式是結合 JAX（處理自動微分）與 Pandas（讀取資料）。由於我無法讀取你的電腦路徑 C:\Users\...，在 Colab 執行時，你需要先上傳檔案或調整讀取方式。以下是完整的步驟與程式碼：第一步：上傳資料在 Colab 左側點選「檔案夾」圖示。點選「上傳到工作階段儲存空間」。選擇你的 data_logmap.csv。第二步：執行程式碼這段程式碼會執行 IRLS (迭代重加權最小平方法)，也就是牛頓法在邏輯回歸上的應用。Pythonimport jax
+要在 Google Colab 上完成這題，最簡單且精確的方式是結合 JAX（處理自動微分）與 Pandas（讀取資料）。由於我無法讀取你的電腦路徑 C:\Users\...，在 Colab 執行時，你需要先上傳檔案或調整讀取方式。以下是完整的步驟與程式碼：第一步：上傳資料在 Colab 左側點選「檔案夾」圖示。點選「上傳到工作階段儲存空間」。選擇你的 data_logmap.csv。第二步：執行程式碼這段程式碼會執行 IRLS (迭代重加權最小平方法)，也就是牛頓法在邏輯回歸上的應用。Python
+import jax
 import jax.numpy as jnp
 import pandas as pd
 import numpy as np
@@ -109,3 +110,96 @@ Iteration  | w0           | w1
 
 ---
 **你需要我幫你把剛才那個程式碼整理成可以直接在 Colab 貼上並輸出 $w_1$ 的最終版本嗎？**
+
+
+import jax
+import jax.numpy as jnp
+import pandas as pd
+import numpy as np
+
+# 1. 讀取資料
+try:
+    file_path = 'data_logmap.csv' 
+    raw_data = pd.read_csv(file_path, header=None).values
+    t_data = jnp.array(raw_data[:, 2])      # 標籤
+    X_data = jnp.array(raw_data[:, [0, 1]]) # 特徵 (x0, x1)
+except FileNotFoundError:
+    print("找不到檔案，改用模擬數據進行演示...")
+    # 模擬數據供測試用
+    X_data = jnp.array([[1.0, 2.0], [2.0, 1.0], [3.0, 4.0], [5.0, 2.0]])
+    t_data = jnp.array([0, 0, 1, 1])
+
+sig2 = 10.0 # 正則化參數 (建議寫成浮點數)
+
+# 2. 定義目標函數 (Negative Log-Posterior)
+def f(w, x, t):
+    # 先驗機率部分 (Prior)
+    # 簡化寫法： -0.5 * (w^T w / sig2)
+    log_prior = -jnp.sum(w**2) / (2 * sig2) - 0.5 * jnp.log(2 * jnp.pi * sig2)
+    
+    # 似然函數部分 (Likelihood)
+    logits = jnp.dot(x, w)
+    # 使用 jax.nn.log_sigmoid 處理數值穩定性
+    log_lik = jnp.sum(t * jax.nn.log_sigmoid(logits) + (1 - t) * jax.nn.log_sigmoid(-logits))
+    
+    return -(log_prior + log_lik) # 取負號，將極大化問題轉為極小化
+
+# 3. 準備微分函數 (使用 lambda 固定 x, t)
+f_temp = lambda w: f(w, X_data, t_data)
+grad_f = jax.grad(f_temp)
+hess_f = jax.hessian(f_temp)
+
+# 4. 執行 Newton's Method 迭代
+w = jnp.array([0.0, 0.0])
+iterations = 9
+
+print(f"{'Iteration':<12} | {'w0':<10} | {'w1':<10}")
+print("-" * 35)
+
+for i in range(iterations):
+    g = grad_f(w)
+    H = hess_f(w)
+    
+    # Newton's update: w = w - H^-1 * g
+    # 使用 solve 比 inv 更穩定
+    w = w - jnp.linalg.solve(H, g)
+    
+    print(f"Iteration {i+1:<2} | {w[0]:.6f} | {w[1]:.6f}")
+
+print("-" * 35)
+print(f"第 9 次迭代後的 w1 為: {w[1]}")
+
+################
+Hint for Quiz 8
+Inbox
+
+Chao-En Yu
+
+
+Hello,
+
+想要輸入slides上的log(g)跑jax，需要將np.log和np.exp等指令轉用jax的版本。JAX社群的作法是呼叫jax.numpy給個暱稱jnp，然後把np改為jnp即可。
+
+下面的指令就能把w=[0,0]透過Newton method公式，計算出Fig 4.3上iteration為2時對應的w=[w0,
+w1]。要求算iteration為9時對應的w1應該就很簡單了吧：
+
+import jax
+import jax.numpy as jnp
+w=np.array([0.0,0.0]);
+def f(w):
+    logg=(-w[0]**2/sig2-w[1]**2/sig2)/2-1/2*jnp.log(2*np.pi*sig2);
+    for i in range(len(t)):
+        logg = logg -
+t[i]*jnp.log(1+jnp.exp(-w[0]*x[i,0]-w[1]*x[i,1])) +
+(1-t[i])*((-w[0]*x[i,0]-w[1]*x[i,1])-jnp.log(1+jnp.exp(-w[0]*x[i,0]-w[1]*x[i,1])))
+;
+    return logg
+Jac = jax.jacfwd(f)
+def hessian(f): return jax.hessian(f)
+Hes = hessian(f)
+w=w-np.linalg.inv(Hes(w))@Jac(w)
+w
+
+Have fun!
+余老師
+################

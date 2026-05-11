@@ -1,0 +1,155 @@
+這份完整程式碼將結合你的 **Metropolis 邏輯**與**線性代數（矩陣乘法）**，精確計算出在 $t=3$ 時各個狀態的機率。
+
+我使用了 `numpy` 來處理矩陣運算，這樣你可以清楚看到 $wT$ 是如何運作的。
+
+```python
+import numpy as np
+
+def calculate_mcmc_exact_prob(target_steps=3):
+    # 1. 定義狀態空間 (1 到 7)
+    states = np.array([1, 2, 3, 4, 5, 6, 7])
+    n = len(states)
+    
+    # 2. 建立轉移矩陣 T (7x7)
+    # T[i, j] 代表從狀態 i+1 轉移到狀態 j+1 的機率
+    T = np.zeros((n, n))
+    
+    for i in range(n):
+        curr_x = states[i]
+        
+        # 決定建議分佈 (Proposal distribution)
+        if curr_x == 1:
+            proposals = [1, 2]
+        elif curr_x == 7:
+            proposals = [6, 7]
+        else:
+            proposals = [curr_x - 1, curr_x + 1]
+        
+        prob_proposal = 1.0 / len(proposals)
+        
+        for proposed_x in proposals:
+            j = proposed_x - 1  # 目標狀態的索引
+            
+            # 計算 Metropolis 接受率: min(1, P(proposed)/P(current))
+            # 這裡的目標分佈 P(x) 就是 x 本身
+            acceptance_rate = min(1.0, proposed_x / curr_x)
+            
+            if i == j:
+                # 情況 A: 建議留在原地 (邊界情況)
+                T[i, i] += prob_proposal
+            else:
+                # 情況 B: 建議移動到另一個狀態
+                move_prob = prob_proposal * acceptance_rate
+                stay_prob = prob_proposal * (1 - acceptance_rate)
+                
+                T[i, j] += move_prob  # 成功移動
+                T[i, i] += stay_prob  # 被拒絕，留在原地
+
+    # 3. 設定初始機率向量 w (t=0 時，100% 在狀態 4)
+    # 索引 3 對應狀態 4
+    w = np.zeros(n)
+    w[3] = 1.0
+    
+    print(f"初始狀態 w(t=0): {w}")
+    print("-" * 30)
+
+    # 4. 利用矩陣乘法計算每一代的機率分佈
+    # w_next = w_current @ T
+    current_w = w
+    for t in range(1, target_steps + 1):
+        current_w = np.dot(current_w, T)
+        print(f"時間步長 t={t} 的機率分佈:")
+        for s, prob in zip(states, current_w):
+            print(f"  P(theta={s}) = {prob:.4f}")
+        print("-" * 30)
+
+    return current_w
+
+# 執行計算
+final_probs = calculate_mcmc_exact_prob(3)
+
+print(f"\n最終結論：在 t=3 時，P(theta=4) 的精確機率為: {final_probs[3]:.4f}")
+
+```
+
+### 程式碼重點解析：
+
+1. **矩陣 `T` 的建立**：
+* 這部分最關鍵的是處理 **「被拒絕」** 的情況。如果新狀態 `proposed_x` 因為隨機判定沒被接受，點會留在原本的 `curr_x`，這必須加回到 `T[i, i]`（對角線）。
+
+
+2. **`np.dot(current_w, T)`**：
+* 這行程式碼完美體現了你提供的投影片內容。它計算了目前所有可能狀態的「加權總和」，得出下一秒的機率分佈。
+
+
+3. **邊界處理**：
+* 針對 $1$ 和 $7$ 的特殊移動邏輯（如 `random.choice([x, x+1])`）進行了硬編碼，確保矩陣每一列的總和等於 $1$（這是馬可夫矩陣的必要條件）。
+
+
+
+這份輸出結果非常清晰地展示了 **Metropolis 演算法** 如何透過馬可夫矩陣，逐步從單一點擴散到整個狀態空間，並朝向「目標分佈」演進的過程。
+
+以下是針對程式邏輯與執行結果的深度解析：
+
+---
+
+### 一、 程式碼核心邏輯解釋
+
+這段程式碼的核心是將**隨機性 (Randomness)** 轉換為**確定性的機率計算 (Matrix Operations)**：
+
+1. **構建轉移矩陣 $T$ (Transition Matrix)**：
+* 程式遍歷了所有可能的狀態（1 到 7）。
+* 對於每個狀態，它模擬了 Metropolis 演算法的兩個階段：
+* **Proposal (建議)**：隨機決定向左或向右走（機率各 $0.5$）。
+* **Acceptance (接受)**：計算 $\alpha = \min(1, \frac{\text{Proposed}}{\text{Current}})$。
+
+
+* **關鍵細節**：如果移動被拒絕（機率為 $1-\alpha$），點會留在原地。這就是為什麼 `T[i, i] += stay_prob` 非常重要，它確保了矩陣每一列的機率總和為 **1**。
+
+
+2. **機率向量演進 ($w_{t+1} = w_t \cdot T$)**：
+* 這反映了你提供的投影片內容。我們不再只追蹤一個點的坐標，而是追蹤「機率的雲團」。
+* `np.dot(current_w, T)` 代表在下一個時間步長中，所有狀態機率的重新分佈。
+
+
+
+---
+
+### 二、 結果執行分析 (Step-by-Step)
+
+#### $t=0$: 初始狀態
+
+* **$P(\theta=4) = 1.0$**
+* 此時機率 100% 集中在狀態 4，這是一個「脈衝」分佈。
+
+#### $t=1$: 第一次擴散
+
+* 點只能從 4 走到 3、5 或留在 4。
+* $P(\theta=5) = 0.5$（因為往大走，接受率 100%）。
+* $P(\theta=3) = 0.375$（建議機率 $0.5 \times$ 接受率 $0.75$）。
+* $P(\theta=4) = 0.125$（往 3 走被拒絕的機率）。
+* **觀察**：機率開始向兩側擴散，但明顯向右側（數值較大處）傾斜。
+
+#### $t=2$: 擴展到二級鄰居
+
+* 機率進一步擴散到了狀態 2 與 6。
+* $P(\theta=4)$ 重新回升到 **0.4031**，這是因為原本在 3 和 5 的機率有很大一部分又跳回了 4（回流效應）。
+
+#### $t=3$: 觸及邊界
+
+* 機率終於到達了狀態 1 與 7。
+* **$P(\theta=4) = 0.1501$**：這就是你要求的精確答案。
+* **整體趨勢**：你會發現 $P(\theta=5)$ 的機率最高 ($0.3170$)。這是因為我們的目標分佈 $P(x) \propto x$，系統會自然地把機率推向右側的高數值區域。
+
+---
+
+### 三、 為什麼結果與模擬不同？
+
+如果你用最初的 `for` 迴圈跑 100 步，得到的結果可能與這份精確值有出入，原因有二：
+
+1. **樣本誤差**：模擬是隨機的，需要跑幾萬次才會接近這個矩陣計算出的理論值。
+2. **Burn-in Period (燃燒期)**：在 $t=3$ 時，系統還深受初始位置 $x=4$ 的影響，尚未達到「平穩狀態」。
+
+### 總結
+
+這份程式碼成功證明了：**Metropolis 演算法本質上就是一個在狀態空間上的「帶權重擴散」過程。** 隨著 $t$ 的增加，這個分佈最後會穩定下來，且各狀態的機率比值會剛好等於 $1:2:3:4:5:6:7$。

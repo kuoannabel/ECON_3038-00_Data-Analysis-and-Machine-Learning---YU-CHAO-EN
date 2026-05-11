@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+
 """
 1.What is the best exclusion of explanatory variables for the California housing dataset?
 2.What is log(validation loss) for the best selection   (小數點以下三位，第四位四捨五入) ?
@@ -21,7 +22,7 @@ feature_names = df.columns[:-1]
 trainX, validX, traint, validt = train_test_split(X, t, test_size=0.2, shuffle=False)
 
 # -----------------------------
-# 🔥 核心：純模型版本的實驗
+# 核心：純模型版本的實驗
 # -----------------------------
 results = []
 
@@ -43,7 +44,7 @@ for i in range(trainX.shape[1]):
 
     # 2. 取 log10
     log10_sse = np.log10(sse)
-    
+    print(f"Drop {feature_names[i]:18} → Log10(SSE) = {log10_sse:.4f}")
     # 注意這裡要用 X_valid_drop 而不是 validX
     #by hand calculation of log10_sse
     error = validt - (model.intercept_ + X_valid_drop @ model.coef_)
@@ -123,30 +124,3 @@ for name, m, s in zip(feature_names, scaler.mean_, scaler.scale_):
     print(f"{name:18} | Average: {m:10.2f} | 1 Standard Deviation = {s:10.2f}")
    
    
-def predict_house_price(model, scaler, feature_names):
-    print("\n--- 🏠 歡迎使用加州房價預測器 ---")
-    print("Please enter the following information (if unsure, refer to the average values):")
-    
-    user_input = []
-    # 這裡我們手動模擬一組數據，或讓使用者輸入
-    # 範例數據：經度 -122, 緯度 37, 屋齡 30, 房間 2000, 臥室 400, 人口 1000, 戶數 300, 收入 5
-    default_values = [-122.0, 37.0, 30.0, 2000.0, 400.0, 1000.0, 300.0, 5.0]
-    
-    for i, name in enumerate(feature_names):
-        val = input(f"Please enter {name} (default {default_values[i]}): ")
-        user_input.append(float(val) if val else default_values[i])
-    
-    # 1. 轉為 2D Array
-    input_array = np.array([user_input])
-    
-    # 2. 必須使用剛才訓練時的 scaler 進行標準化！
-    input_scaled = scaler.transform(input_array)
-    
-    # 3. 預測
-    prediction = model.predict(input_scaled)
-    
-    print(f"\n✨ 預測結果：該房屋估價約為 ${prediction[0]:,.2f}")
-    print("--------------------------------")
-
-# 執行預測器
-predict_house_price(scaled_model, scaler, feature_names)
