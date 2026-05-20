@@ -47,18 +47,16 @@ print(f"點 ({target_x1}, {target_x2}) 的預測機率為: {predictive_prob:.3f}
 print(f"modified: {predictive_prob:.2f}")
 print("--------------------------------------------------\n")
 
-# =====================================================================
-# 3. 繪圖驗證 (為了讓程式跑快一點，我們只用前 500 個樣本來畫決策邊界)
-# =====================================================================
+
 x1 = np.arange(-5, 5, 0.1)# x1 的範圍從 -5 到 5，步長為 0.1 
 x2 = np.arange(-5, 5, 0.1)
 zz = []
-# 減量繪圖以加速
-wlst_sub = wlst[:10000] 
+
+
 
 for y in x2:
     for x in x1:
-        zz.append(np.mean([1 / (1 + np.exp(-(wlst_sub[i][0]*x + wlst_sub[i][1]*y)))  for i in range(len(wlst_sub))]))
+        zz.append(np.mean([1 / (1 + np.exp(-(wlst[i][0]*x + wlst[i][1]*y)))  for i in range(len(wlst))]))
 
 zz = np.array(zz).reshape(len(x2), len(x1))
 print(f"決策邊界計算完成, zz shape: {zz.shape}")
@@ -74,7 +72,7 @@ plt.contour(x1, x2, zz, [0.749], colors='turquoise', linewidths=2)
 
 # 標註我們要測量的點 (5, -5) 
 plt.scatter(target_x1, target_x2, color='green', marker='X', s=100, label='Target Point (5, -5)')
-plt.scatter(wlst_sub[:, 0], wlst_sub[:, 1], s=0.5, alpha=0.5, label='MCMC Samples')
+plt.scatter(wlst[:, 0], wlst[:, 1], s=0.5, alpha=0.5, label='MCMC Samples')
 
 plt.xlabel('w1')
 plt.ylabel('w2')
