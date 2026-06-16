@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 from scipy.stats import norm, multivariate_normal
 #用 Metropolis MCMC 去近似一個「二維高斯後驗分布」，再把它帶進 Bayesian logistic regression，最後畫出 predictive probability 的等值線。
 #(1) 不確定模型參數 w→ 用 MCMC 抽很多 w
-
+from scipy.optimize import bisect
 #(2) 每個 w 都能做分類→ sigmoid(w·x)
 
 #(3) 把所有模型平均→ 得到「整體不確定性下的預測」
@@ -28,7 +28,24 @@ for i in range(Ns):
 
 wlst = np.array(wlst)
 print(f"成功抽取樣本數: {len(wlst)}")
+######
+# 定義一個函數：給定 x2，回傳 (預測機率 - 0.5)
+def target_func(target_x2):
+    fixed_x1 = 5.0
+    # 計算該點在 10000 個 MCMC 樣本下的平均機率
+    prob = np.mean([
+        1 / (1 + np.exp(-(w[0] * fixed_x1 + w[1] * target_x2))) 
+        for w in wlst
+    ])
+    return prob - 0.5
 
+# 使用二分搜尋法，在 x2 範圍 [-5, 5] 之間尋找零根
+# 因為當 x2=-5 時機率小於 0.5，x2=5 時機率大於 0.5，中間必有一根
+exact_x2 = bisect(target_func, -5.0, 5.0)
+print(f"x1 = {5.0}, x2 = {exact_x2}")
+print(f"精確計算出的 x2 值為: {exact_x2:.4f}")
+print(f"四捨五入至小數點後一位: {exact_x2:.1f}")
+#####
 # =====================================================================
 # 2. 核心：單獨計算特定點 (x1=5, x2=-5) 的貝氏預測機率
 # =====================================================================
